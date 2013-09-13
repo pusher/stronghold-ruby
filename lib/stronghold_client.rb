@@ -166,11 +166,30 @@ module Stronghold
     end
   end
 
+  class Error < StandardError;  end
+  class ConnectionError < Error
+    attr_reader :child_error
+    def initialize(child_error)
+      super("#{child_error.message} (#{child_error.class})")
+      set_backtrace(child_error.backtrace)
+      @child_error = child_error
+    end
+  end
+
   class Client
     attr_reader :connection
 
-    def initialize(uri)
-      @connection = Excon.new(uri)
+    ##
+    # Connect to stronghold
+    def initialize(uri = "http://127.0.0.1:5040")
+      begin
+        @connection = Excon.new(uri)
+        unless @connection.get.body == "Stronghold says hi"
+          raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
+        end
+      rescue Excon::Errors::Error => ex
+        raise(Stronghold::ConnectionError.new(ex))
+      end
     end
 
     ##
