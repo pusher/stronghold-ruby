@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+require 'stronghold_client'
+require 'getoptlong'
+
+def extract(res, path = "/")
+  rem = path.split("/").select{|p| p != ""}
+  while (rem.length > 0) && (res = res[rem[0]])
+    rem.shift
+  end
+  if rem.length > 0
+    die(-10,"No #{path} in #{$path}")
+  end
+  if res.class == Hash
+    JSON.pretty_generate(res)
+  else
+    res
+  end
+end
+
+def which(cmd)
+  exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
+  ENV['PATH'].split(File::PATH_SEPARATOR).each do |path|
+    exts.each { |ext|
+      exe = File.join(path, "#{cmd}#{ext}")
+      return exe if File.executable? exe
+    }
+  end
+  return nil
+end
+
+def die(code,message)
+  $stderr.puts message
+  $stderr.flush
+  Kernel.exit(code)
+end
+
+def client()
+  begin
+    $client ||= Stronghold::Client.new($url)
+  rescue Stronghold::ConnectionError => ex
+    $stderr.puts "Cannot connect to stronghold at #{$url}"
+    Kernel.exit(-1)
+  end
+end
+
+def path_valid?(arg)
+  arg.start_with?(*(client.head.tree.paths - [""]))
+end
+
+def mode_ify(opt)
+  die(-1,"Can't use #{opt} in --#{mode.to_s}") if $mode && $mode != opt
+  $mode=opt
+end
+
+opts = GetoptLong.new(
+  [ '--env', '-e', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--get', '-g', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--url', '-u', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--list', '-l', GetoptLong::NO_ARGUMENT ]
+)
+opts.ordering = GetoptLong::REQUIRE_ORDER
+
+$mode = nil
+tree = nil
+$url = "http://127.0.0.1:5040"
+opts.each do |opt, arg|
+  case opt
+  when '--url'
+    $url = arg
+  when '--list'
+    mode_ify(opt)
+    puts client.head.tree.paths.join(",")
+  when '--path'
+    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
+    $path = arg
+    tree = client.head.tree.materialized($path)
+  when '--app'
+    filepath = "/etc/stronghold-cli.d/#{arg}"
+    die(-5,"File not readable: #{filepath}") unless File.readable?(filepath)
+    $path = IO.read(filepath)
+    die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
+    tree = client.head.tree.materialized($path)
+  when '--env'
+    die(-4,"Need to define path first, with --app or --path") unless $path
+    mode_ify(opt)
+    from, to = arg.split(":")
+    ENV[to] = extract(tree, from)
+  when '--set'
+    die(1,"sets not supported at present")
+  when '--get'
+    die(-4,"Need to define path first, with --app or --path") unless $path
+    mode_ify(opt)
+    puts extract(*([tree, arg] - [nil]))
+  end
+end
+if $mode == "--env"
+  if ARGV.length > 0 && (app = which(ARGV[0]))
+    Kernel.exec(ENV, app, *ARGV[1..-1])
+  else
+    puts "Env requires an executable last argument, after --, either in your PATH or fully qualified"
+  end
+elsif $mode == nil
+  puts "Run as:"
+  puts "# stronghold-cli (--app my-server|--path /app/data) --get /data/path ..."
+  puts "# stronghold-cli [--url stronghold:port] (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
+end

@@ -6,7 +6,8 @@ Gem::Specification.new do |s|
   s.description = "Client for the stronghold configuration store"
   s.authors     = ["Daniel Waterworth", "Samuel Kleiner"]
   s.email       = 'sk@pusher.com'
-  s.files       = ["lib/stronghold_client.rb"]
+  s.files       = ["lib/stronghold_client.rb","bin/stronghold-cli"]
+  s.executables = ["stronghold-cli"]
   s.homepage    =
     'http://github.com/pusher/ruby-stronghold-client'
   s.license       = 'Not yet agreed'
