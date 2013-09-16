@@ -18,8 +18,10 @@ Or install it yourself as:
 
 ## Usage
 
-   stronghold-cli (--app my-server|--path /app/data) --get /data/path ..."
-   stronghold-cli [--url stronghold:port] (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
+```sh
+stronghold-cli (--app my-server|--path /app/data) --get /data/path ...
+stronghold-cli [--url stronghold:port] (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable
+```
 
 ## Contributing
 
