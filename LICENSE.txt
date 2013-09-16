@@ -1,4 +1,4 @@
-Copyright (c) 2013 Samuel Kleiner
+Copyright (c) 2013 Pusher Ltd
 
 MIT License
 
