@@ -10,6 +10,8 @@ module Stronghold
       @version = version
     end
 
+    ##
+    # List the paths that stronghold knows about
     def paths
       resp = @client.connection.get(
         path: "/#{version}/tree/paths",
@@ -19,6 +21,11 @@ module Stronghold
       JSON.parse(resp.body)
     end
 
+    ##
+    # Extracts the set variables from a particular path level.
+    # This means variables set at that level, and none others
+    # Generally this is not what you want, unless you are
+    # writing an editor
     def peculiar(path)
       raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
       resp = @client.connection.get(
@@ -29,6 +36,10 @@ module Stronghold
       JSON.parse(resp.body)
     end
 
+    ##
+    # Extracts the set variables for a path. This means variables
+    # from this level of the path and all previous levels
+    # superimposed in order of specialization (lower overrides higher)
     def materialized(path)
       raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
       resp = @client.connection.get(
@@ -90,6 +101,8 @@ module Stronghold
       @version = version
     end
 
+    ##
+    # Get the tree of data represented by this version
     def tree
       @tree ||= Tree.new(@client, @version)
     end
@@ -153,13 +166,34 @@ module Stronghold
     end
   end
 
+  class Error < StandardError;  end
+  class ConnectionError < Error
+    attr_reader :child_error
+    def initialize(child_error)
+      super("#{child_error.message} (#{child_error.class})")
+      set_backtrace(child_error.backtrace)
+      @child_error = child_error
+    end
+  end
+
   class Client
     attr_reader :connection
 
-    def initialize(uri)
-      @connection = Excon.new(uri)
+    ##
+    # Connect to stronghold
+    def initialize(uri = "http://127.0.0.1:5040")
+      begin
+        @connection = Excon.new(uri)
+        unless @connection.get.body == "Stronghold says hi"
+          raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
+        end
+      rescue Excon::Errors::Error => ex
+        raise(Stronghold::ConnectionError.new(ex))
+      end
     end
 
+    ##
+    # Get the latest version, generally what you want
     def head
       Version.new(self, @connection.get(
         path: '/head',
