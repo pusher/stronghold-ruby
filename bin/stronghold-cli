@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-require 'stronghold_client'
+require 'stronghold'
 require 'getoptlong'
 
 def extract(res, path = "/")
