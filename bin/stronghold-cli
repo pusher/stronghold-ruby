@@ -44,7 +44,7 @@ def client()
 end
 
 def path_valid?(arg)
-  arg.start_with?(*(client.head.tree.paths - [""]))
+  (arg.length > 1 && arg.start_with?(*(client.head.tree.paths - [""]))) || arg == "/"
 end
 
 def mode_ify(opt)
