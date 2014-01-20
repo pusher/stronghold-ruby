@@ -18,6 +18,7 @@ def extract(res, path = "/")
 end
 
 def which(cmd)
+  return cmd if cmd[0] == ?/ && File.executable?(cmd)
   exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
   ENV['PATH'].split(File::PATH_SEPARATOR).each do |path|
     exts.each { |ext|
