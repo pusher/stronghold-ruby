@@ -57,6 +57,8 @@ module Stronghold
       JSON.parse(resp.body)
     end
 
+    ##
+    # Blocks until the materialized JSON for a particular path changes
     def next_materialized(path)
       Stronghold::Path.valid(path)
       resp = @client.connection.get(
@@ -114,6 +116,8 @@ module Stronghold
       @tree ||= Tree.new(@client, @version)
     end
 
+    ##
+    # Get update data for a past change
     def change
       @change ||= begin
         response = @client.connection.get(
@@ -132,9 +136,14 @@ module Stronghold
       end
     end
 
+    ##
+    # Update or create a new path
     def update(options)
       path, data, author, comment = options.values_at(:path, :data, :author, :comment)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      if [data, author, comment].compact.length != 3
+        raise "No null arguments allowed in options: #{options}"
+      end
+      Stronghold::Path.valid(path)
       resp = @client.connection.post(
         path: "/#{version}/update#{path}",
         body: JSON.generate(data: data, author: author, comment: comment),
