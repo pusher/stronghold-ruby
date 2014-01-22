@@ -144,12 +144,13 @@ module Stronghold
         raise "No null arguments allowed in options: #{options}"
       end
       Stronghold::Path.valid(path)
-      resp = @client.connection.post(
-        path: "/#{version}/update#{path}",
-        body: JSON.generate(data: data, author: author, comment: comment),
-        expects: 200,
-        idempotent: true
-      )
+      resp = Stronghold::Client.wrap("Could not update stronghold"){
+        @client.connection.post(
+          path: "/#{version}/update#{path}",
+          body: JSON.generate(data: data, author: author, comment: nil),
+          expects: 200,
+          idempotent: true
+        )}
       Version.new(@client, resp.body)
     end
   end
@@ -185,26 +186,30 @@ module Stronghold
   class Error < StandardError;  end
   class ConnectionError < Error
     attr_reader :child_error
-    def initialize(child_error)
-      super("#{child_error.message} (#{child_error.class})")
+    def initialize(child_error,error_data)
+      super("#{error_data}: #{child_error.message} (#{child_error.class})")
       set_backtrace(child_error.backtrace)
       @child_error = child_error
     end
   end
 
   class Client
+    def self.wrap(error=nil,&block)
+      begin
+        block.call()
+      rescue Excon::Errors::Error => ex
+        raise Stronghold::ConnectionError.new(ex,error)
+      end
+    end
+
     attr_reader :connection
 
     ##
     # Connect to stronghold
     def initialize(uri = "http://127.0.0.1:5040")
-      begin
-        @connection = Excon.new(uri)
-        unless @connection.get.body == "Stronghold says hi"
-          raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
-        end
-      rescue Excon::Errors::Error => ex
-        raise(Stronghold::ConnectionError.new(ex))
+      @connection = Excon.new(uri)
+      unless Stronghold::Client.wrap{@connection.get.body} == "Stronghold says hi"
+        raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
       end
     end
 
