@@ -131,5 +131,6 @@ if $mode == "--env"
 elsif $mode == nil
   puts "Run as:"
   puts "# stronghold-cli (--app my-server|--path /app/data) --get /data/path ..."
-  puts "# stronghold-cli [--url stronghold:port] (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
+  puts "# stronghold-cli (--app my-server|--path /app/data) --set /data/path:to_value ..."
+  puts "# stronghold-cli (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
 end
