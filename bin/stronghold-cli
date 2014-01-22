@@ -17,6 +17,20 @@ def extract(res, path = "/")
   end
 end
 
+def intract(res, path, val)
+  split_path = path.split(?/).select{|p| p != ""}
+  leaf = split_path[0..-2]
+    .reduce(res){|old, new| (old[new].nil? ? old.update(new => {}) : old)[new] }
+  leaf.update({split_path[-1] => val}) do |key,oldval,newval|
+    if oldval.class == Hash && !$force
+      die(-11,"Won't overwrite hash in update of #{path}, would overwrite #{oldval}")
+    else
+      newval
+    end
+  end
+  res
+end
+
 def which(cmd)
   return cmd if cmd[0] == ?/ && File.executable?(cmd)
   exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
@@ -60,7 +74,8 @@ opts = GetoptLong.new(
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--url', '-u', GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--list', '-l', GetoptLong::NO_ARGUMENT ]
+  [ '--list', '-l', GetoptLong::NO_ARGUMENT ],
+  [ '--force', '-f', GetoptLong::NO_ARGUMENT ],
 )
 opts.ordering = GetoptLong::REQUIRE_ORDER
 
@@ -75,24 +90,34 @@ opts.each do |opt, arg|
     mode_ify(opt)
     puts client.head.tree.paths.join(",")
   when '--path'
-    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     $path = arg
-    tree = client.head.tree.materialized($path)
   when '--app'
     filepath = "/etc/stronghold-cli.d/#{arg}"
     die(-5,"File not readable: #{filepath}") unless File.readable?(filepath)
     $path = IO.read(filepath)
-    die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
-    tree = client.head.tree.materialized($path)
   when '--env'
     die(-4,"Need to define path first, with --app or --path") unless $path
+    tree = client.head.tree.materialized($path)
+    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     mode_ify(opt)
     from, to = arg.split(":")
     ENV[to] = extract(tree, from)
+  when '--force'
+    $force = true
   when '--set'
-    die(1,"sets not supported at present")
+    mode_ify(opt)
+    internal_path,to = arg.split(?:)
+    die(-6,"Internal path needs to exist --set=path:value") if internal_path.nil? || to.nil?
+    client.head.update({
+        :path=>$path,
+        :author=>"command-line on #{Socket.gethostname}",
+        :data=>intract(client.head.tree.peculiar($path),internal_path,to),
+        :comment=>"At level #{$path} set #{arg}"
+      })
   when '--get'
     die(-4,"Need to define path first, with --app or --path") unless $path
+    tree = client.head.tree.materialized($path)
+    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     mode_ify(opt)
     puts extract(*([tree, arg] - [nil]))
   end
