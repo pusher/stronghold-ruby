@@ -2,6 +2,13 @@ require 'excon'
 require 'json'
 
 module Stronghold
+  class Path
+    def self.valid(path)
+      raise "path should start with a forward slash" unless path[0] == ?/ || path.empty?
+      raise "path should not end with a forward slash" if path[-1] == ?/ && path != ?/
+    end
+  end
+
   class Tree
     attr_reader :version
 
@@ -27,7 +34,7 @@ module Stronghold
     # Generally this is not what you want, unless you are
     # writing an editor
     def peculiar(path)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      Stronghold::Path.valid(path)
       resp = @client.connection.get(
         path: "/#{version}/tree/peculiar#{path}",
         expects: 200,
@@ -41,7 +48,7 @@ module Stronghold
     # from this level of the path and all previous levels
     # superimposed in order of specialization (lower overrides higher)
     def materialized(path)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      Stronghold::Path.valid(path)
       resp = @client.connection.get(
         path: "/#{version}/tree/materialized#{path}",
         expects: 200,
@@ -51,7 +58,7 @@ module Stronghold
     end
 
     def next_materialized(path)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      Stronghold::Path.valid(path)
       resp = @client.connection.get(
         path: "/#{version}/next/tree/materialized#{path}",
         expects: 200,
