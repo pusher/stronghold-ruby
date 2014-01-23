@@ -57,6 +57,9 @@ In this case getting the data path `/connect_to/port` would return 80
 - `--get [/data/path]`
   Get data matched by data path from stronghold head and print
 
+- `--history [/data/path]`
+  Show the impact of the last 5 versions on this data path
+
 - `--set /data/path:to_value`
   Set value of data path, creating hashes as we go. Use --force to overwrite
 

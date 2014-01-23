@@ -79,14 +79,22 @@ def mode_ify(opt)
   $mode = opt
 end
 
-def valid_tree(nxt = false)
+def valid_path
   die(-4,"Need to define path first, with --app or --path") unless $path
   die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
+end
+
+def valid_tree(nxt = false)
+  valid_path
   if nxt
     client.head.tree.next_materialized($path)[:data]
   else
     client.head.tree.materialized($path)
   end
+end
+
+def data_path(arg)
+  arg == "" ? "/" : arg
 end
 
 opts = GetoptLong.new(
@@ -129,28 +137,28 @@ opts.each do |opt, arg|
   when '--run'
     $run = true
   when '--next'
-    arg = "/" if arg == ""
     mode_ify(opt)
     old = extract(valid_tree(), arg)
     new = old
     while(old == new)
-      new = extract(valid_tree(true), arg)
+      new = extract(valid_tree(true), data_path(arg))
     end
     puts format(new)
   when '--set'
     mode_ify(opt)
-    internal_path,to = arg.split(?:)
-    die(-6,"Wrong format to set, use like --set=hashpath:value") if internal_path.nil? || to.nil?
+    internal_path,to,comment = arg.split(?:)
+    if internal_path.nil? || to.nil?
+      die(-6,"Wrong format to set, use like --set=hashpath:value:[comment]")
+    end
     client.head.update({
         :path => $path,
         :author => "command-line on #{Socket.gethostname}",
         :data => intract(client.head.tree.peculiar($path), internal_path, to),
-        :comment => "At level #{$path} set #{arg}"
+        :comment => comment || "At level #{$path} set #{arg}"
       })
   when '--get'
-    arg = "/" if arg == ""
     mode_ify(opt)
-    puts format(extract(valid_tree(), arg))
+    puts format(extract(valid_tree(), data_path(arg)))
   end
 end
 if $mode == "--env" or $run
