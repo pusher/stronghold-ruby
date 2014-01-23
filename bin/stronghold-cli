@@ -103,6 +103,7 @@ opts = GetoptLong.new(
   [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--history', '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--url', '-u', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--list', '-l', GetoptLong::NO_ARGUMENT ],
@@ -127,6 +128,14 @@ opts.each do |opt, arg|
     filepath = "/etc/stronghold-cli.d/#{arg}"
     die(-5, "File not readable: #{filepath}") unless File.readable?(filepath)
     $path = IO.read(filepath)
+  when '--history'
+    mode_ify(opt)
+    valid_path
+    client.versions.before(client.head, 5).reverse.each{|version|
+      change = version.change
+      puts "At #{Time.at(change.timestamp).ctime} [#{change.author}]: #{change.comment}"
+      puts format(extract(version.tree.materialized($path), data_path(arg)))
+    }
   when '--env'
     mode_ify(opt)
     from, to = arg.split(?:)
@@ -174,6 +183,9 @@ elsif $mode == nil
   puts
   puts "  --next [/data/path]"
   puts "  Wait for next stronghold change matched by data path and print"
+  puts
+  puts "  --history [/data/path]"
+  puts "  Show the impact of the last 5 versions on this data path"
   puts
   puts "  --get [/data/path] ..."
   puts "  Get data matched by data path from stronghold head and print"
