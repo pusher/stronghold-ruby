@@ -2,6 +2,8 @@
 require 'stronghold'
 require 'getoptlong'
 
+##
+# Get value from recursive hash
 def extract(res, path = "/")
   rem = path.split("/").select{|p| p != ""}
   while (rem.length > 0) && (res = res[rem[0]])
@@ -17,6 +19,8 @@ def extract(res, path = "/")
   end
 end
 
+##
+# Set value in recursive hash, when given the hash path and value
 def intract(res, path, val)
   split_path = path.split(?/).select{|p| p != ""}
   leaf = split_path[0..-2]
@@ -31,6 +35,8 @@ def intract(res, path, val)
   res
 end
 
+##
+# Get binary for exec
 def which(cmd)
   return cmd if cmd[0] == ?/ && File.executable?(cmd)
   exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
@@ -44,17 +50,16 @@ def which(cmd)
 end
 
 def die(code,message)
-  $stderr.puts message
+  $stderr.puts "stronghold-cli: #{message}"
   $stderr.flush
-  Kernel.exit(code)
+  Kernel.exit!(code)
 end
 
 def client()
   begin
     $client ||= Stronghold::Client.new($url)
   rescue Stronghold::ConnectionError => ex
-    $stderr.puts "Cannot connect to stronghold at #{$url}"
-    Kernel.exit(-1)
+    die(-1,"Cannot connect to stronghold at #{$url}")
   end
 end
 
@@ -62,6 +67,8 @@ def path_valid?(arg)
   (arg.length > 1 && arg.start_with?(*(client.head.tree.paths - [""]))) || arg == "/"
 end
 
+##
+# Set mode. E.g you can't use --set and --get in the same invocation
 def mode_ify(opt)
   die(-1,"Can't use #{opt} in --#{mode.to_s}") if $mode && $mode != opt
   $mode=opt
@@ -117,6 +124,7 @@ opts.each do |opt, arg|
   when '--get'
     die(-4,"Need to define path first, with --app or --path") unless $path
     tree = client.head.tree.materialized($path)
+    arg = "/" if arg == ""
     die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     mode_ify(opt)
     puts extract(*([tree, arg] - [nil]))
