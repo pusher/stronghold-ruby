@@ -1,9 +1,10 @@
 #!/usr/bin/env ruby
 require 'stronghold'
 require 'getoptlong'
+require 'json'
 
 ##
-# Get value from recursive hash
+# Get value from recursive hash given string path
 def extract(res, path = "/")
   rem = path.split("/").select{|p| p != ""}
   while (rem.length > 0) && (res = res[rem[0]])
@@ -120,8 +121,9 @@ opts.each do |opt, arg|
     $path = IO.read(filepath)
   when '--env'
     mode_ify(opt)
-    from, to = arg.split(":")
-    ENV[to] = extract(valid_tree(), from)
+    from, to = arg.split(?:)
+    die(-6,"Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
+    ENV[to] = extract(valid_tree(), from).to_s
   when '--force'
     $force = true
   when '--run'
