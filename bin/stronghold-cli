@@ -131,7 +131,12 @@ opts.each do |opt, arg|
   when '--next'
     arg = "/" if arg == ""
     mode_ify(opt)
-    puts extract(*([valid_tree(), arg] - [nil]))
+    old = extract(valid_tree(), arg)
+    new = old
+    while(old == new)
+      new = extract(valid_tree(true), arg)
+    end
+    puts format(new)
   when '--set'
     mode_ify(opt)
     internal_path,to = arg.split(?:)
@@ -145,7 +150,7 @@ opts.each do |opt, arg|
   when '--get'
     arg = "/" if arg == ""
     mode_ify(opt)
-    puts format(extract(*([valid_tree(), arg] - [nil])))
+    puts format(extract(valid_tree(), arg))
   end
 end
 if $mode == "--env" or $run
@@ -156,7 +161,8 @@ if $mode == "--env" or $run
   end
 elsif $mode == nil
   puts "Run as:"
-  puts "# stronghold-cli (--app my-server|--path /app/data) --get /data/path ..."
-  puts "# stronghold-cli (--app my-server|--path /app/data) --set /data/path:to_value ..."
-  puts "# stronghold-cli (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
+  puts "$ stronghold-cli (--app my-server|--path /app/data) --next [/data/path]"
+  puts "$ stronghold-cli (--app my-server|--path /app/data) --get [/data/path] ..."
+  puts "$ stronghold-cli (--app my-server|--path /app/data) --set /data/path:to_value ..."
+  puts "$ stronghold-cli (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
 end
