@@ -12,6 +12,10 @@ def extract(res, path = "/")
   if rem.length > 0
     die(-10,"No #{path} in #{$path}")
   end
+  res
+end
+
+def format(res)
   if res.class == Hash
     JSON.pretty_generate(res)
   else
@@ -139,7 +143,7 @@ opts.each do |opt, arg|
   when '--get'
     arg = "/" if arg == ""
     mode_ify(opt)
-    puts extract(*([valid_tree(), arg] - [nil]))
+    puts format(extract(*([valid_tree(), arg] - [nil])))
   end
 end
 if $mode == "--env" or $run
