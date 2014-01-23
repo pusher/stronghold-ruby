@@ -160,12 +160,19 @@ if $mode == "--env" or $run
     puts "Env requires an executable last argument, after --, either in your PATH or fully qualified"
   end
 elsif $mode == nil
-  puts "$ stronghold-cli (--app my-server|--path /app/data) --next [/data/path]"
-  puts "Wait for next stronghold change matched by data path and print"
-  puts "$ stronghold-cli (--app my-server|--path /app/data) --get [/data/path] ..."
-  puts "Get data matched by data path from stronghold head and print"
-  puts "$ stronghold-cli (--app my-server|--path /app/data) --set /data/path:to_value ..."
-  puts "Set value of data path, creating hashes as we go. Use force to overwrite"
-  puts "$ stronghold-cli (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
-  puts "Get data from stronghold head and put in environment variable, and run runnable"
+  puts "$ stronghold-cli (--path /path/ |--app app | --list) [operation]"
+  puts
+  puts "Operations:"
+  puts
+  puts "  --next [/data/path]"
+  puts "  Wait for next stronghold change matched by data path and print"
+  puts
+  puts "  --get [/data/path] ..."
+  puts "  Get data matched by data path from stronghold head and print"
+  puts
+  puts "  --set /data/path:to_value ..."
+  puts "  Set value of data path, creating hashes as we go. Use --force to overwrite"
+  puts
+  puts "  --env /data/path:PATHDATA ... -- runnable"
+  puts "  Get data from stronghold head and put in environment variable, and run runnable"
 end
