@@ -74,15 +74,27 @@ def mode_ify(opt)
   $mode=opt
 end
 
+def valid_tree(nxt = false)
+  die(-4,"Need to define path first, with --app or --path") unless $path
+  die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
+  if nxt
+    client.head.tree.next_materialized($path)[:data]
+  else
+    client.head.tree.materialized($path)
+  end
+end
+
 opts = GetoptLong.new(
   [ '--env', '-e', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--get', '-g', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--url', '-u', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--list', '-l', GetoptLong::NO_ARGUMENT ],
   [ '--force', '-f', GetoptLong::NO_ARGUMENT ],
+  [ '--run', '-r', GetoptLong::NO_ARGUMENT ],
 )
 opts.ordering = GetoptLong::REQUIRE_ORDER
 
@@ -103,18 +115,21 @@ opts.each do |opt, arg|
     die(-5,"File not readable: #{filepath}") unless File.readable?(filepath)
     $path = IO.read(filepath)
   when '--env'
-    die(-4,"Need to define path first, with --app or --path") unless $path
-    tree = client.head.tree.materialized($path)
-    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     mode_ify(opt)
     from, to = arg.split(":")
-    ENV[to] = extract(tree, from)
+    ENV[to] = extract(valid_tree(), from)
   when '--force'
     $force = true
+  when '--run'
+    $run = true
+  when '--next'
+    arg = "/" if arg == ""
+    mode_ify(opt)
+    puts extract(*([valid_tree(), arg] - [nil]))
   when '--set'
     mode_ify(opt)
     internal_path,to = arg.split(?:)
-    die(-6,"Internal path needs to exist --set=path:value") if internal_path.nil? || to.nil?
+    die(-6,"Wrong format to set, use like --set=hashpath:value") if internal_path.nil? || to.nil?
     client.head.update({
         :path=>$path,
         :author=>"command-line on #{Socket.gethostname}",
@@ -122,15 +137,12 @@ opts.each do |opt, arg|
         :comment=>"At level #{$path} set #{arg}"
       })
   when '--get'
-    die(-4,"Need to define path first, with --app or --path") unless $path
-    tree = client.head.tree.materialized($path)
     arg = "/" if arg == ""
-    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     mode_ify(opt)
-    puts extract(*([tree, arg] - [nil]))
+    puts extract(*([valid_tree(), arg] - [nil]))
   end
 end
-if $mode == "--env"
+if $mode == "--env" or $run
   if ARGV.length > 0 && (app = which(ARGV[0]))
     Kernel.exec(ENV, app, *ARGV[1..-1])
   else
