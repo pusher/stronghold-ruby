@@ -5,15 +5,17 @@ require 'json'
 
 ##
 # Get value from recursive hash given string path
-def extract(res, path = "/")
+def extract(res, path, die_unless = true)
   rem = path.split("/").select{|p| p != ""}
   while (rem.length > 0) && (res = res[rem[0]])
     rem.shift
   end
   if rem.length > 0
-    die(-10,"No #{path} in #{$path}")
+    die(-10,"No #{path} in #{$path}") if die_unless
+    nil
+  else
+    res
   end
-  res
 end
 
 def format(res)
@@ -134,7 +136,7 @@ opts.each do |opt, arg|
     client.versions.before(client.head, 5).reverse.each{|version|
       change = version.change
       puts "At #{Time.at(change.timestamp).ctime} [#{change.author}]: #{change.comment}"
-      puts format(extract(version.tree.materialized($path), data_path(arg)))
+      puts format(extract(version.tree.materialized($path), data_path(arg),false))
     }
   when '--env'
     mode_ify(opt)
