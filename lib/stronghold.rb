@@ -147,7 +147,7 @@ module Stronghold
       resp = Stronghold::Client.wrap("Could not update stronghold"){
         @client.connection.post(
           path: "/#{version}/update#{path}",
-          body: JSON.generate(data: data, author: author, comment: nil),
+          body: JSON.generate(data: data, author: author, comment: comment),
           expects: 200,
           idempotent: true
         )}
