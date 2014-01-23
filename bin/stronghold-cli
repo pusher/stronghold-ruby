@@ -60,7 +60,7 @@ def die(code,message)
   Kernel.exit!(code)
 end
 
-def client()
+def client
   begin
     $client ||= Stronghold::Client.new($url)
   rescue Stronghold::ConnectionError => ex
@@ -75,8 +75,8 @@ end
 ##
 # Set mode. E.g you can't use --set and --get in the same invocation
 def mode_ify(opt)
-  die(-1,"Can't use #{opt} in --#{mode.to_s}") if $mode && $mode != opt
-  $mode=opt
+  die(-1, "Can't use #{opt} in --#{mode.to_s}") if $mode && $mode != opt
+  $mode = opt
 end
 
 def valid_tree(nxt = false)
@@ -117,12 +117,12 @@ opts.each do |opt, arg|
     $path = arg
   when '--app'
     filepath = "/etc/stronghold-cli.d/#{arg}"
-    die(-5,"File not readable: #{filepath}") unless File.readable?(filepath)
+    die(-5, "File not readable: #{filepath}") unless File.readable?(filepath)
     $path = IO.read(filepath)
   when '--env'
     mode_ify(opt)
     from, to = arg.split(?:)
-    die(-6,"Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
+    die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
     ENV[to] = extract(valid_tree(), from).to_s
   when '--force'
     $force = true
@@ -142,10 +142,10 @@ opts.each do |opt, arg|
     internal_path,to = arg.split(?:)
     die(-6,"Wrong format to set, use like --set=hashpath:value") if internal_path.nil? || to.nil?
     client.head.update({
-        :path=>$path,
-        :author=>"command-line on #{Socket.gethostname}",
-        :data=>intract(client.head.tree.peculiar($path),internal_path,to),
-        :comment=>"At level #{$path} set #{arg}"
+        :path => $path,
+        :author => "command-line on #{Socket.gethostname}",
+        :data => intract(client.head.tree.peculiar($path), internal_path, to),
+        :comment => "At level #{$path} set #{arg}"
       })
   when '--get'
     arg = "/" if arg == ""
