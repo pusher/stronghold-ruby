@@ -16,12 +16,19 @@ Or install it yourself as:
 
     $ gem install stronghold
 
-## Usage
+## Commandline Usage
 
 ```sh
 stronghold-cli (--app my-server|--path /app/data) --get /data/path ...
 stronghold-cli [--url stronghold:port] (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable
 ```
+
+## API Usage Example
+
+    # You can optionally pass a url for stronghold, defaults to "http://127.0.0.1:5040"
+    stronghold = Stronghold::Client.new
+
+    config = stronghold.head.tree.materialized('/foo/bar')
 
 ## Contributing
 
