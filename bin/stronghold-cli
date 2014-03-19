@@ -1,15 +1,24 @@
 #!/usr/bin/env ruby
 require 'stronghold'
 require 'getoptlong'
+require 'json'
 
-def extract(res, path = "/")
+##
+# Get value from recursive hash given string path
+def extract(res, path, die_unless = true)
   rem = path.split("/").select{|p| p != ""}
   while (rem.length > 0) && (res = res[rem[0]])
     rem.shift
   end
   if rem.length > 0
-    die(-10,"No #{path} in #{$path}")
+    die(-10,"No #{path} in #{$path}") if die_unless
+    nil
+  else
+    res
   end
+end
+
+def format(res)
   if res.class == Hash
     JSON.pretty_generate(res)
   else
@@ -17,7 +26,26 @@ def extract(res, path = "/")
   end
 end
 
+##
+# Set value in recursive hash, when given the hash path and value
+def intract(res, path, val)
+  split_path = path.split(?/).select{|p| p != ""}
+  leaf = split_path[0..-2]
+    .reduce(res){|old, new| (old[new].nil? ? old.update(new => {}) : old)[new] }
+  leaf.update({split_path[-1] => val}) do |key,oldval,newval|
+    if oldval.class == Hash && !$force
+      die(-11,"Won't overwrite hash in update of #{path}, would overwrite #{oldval}")
+    else
+      newval
+    end
+  end
+  res
+end
+
+##
+# Get binary for exec
 def which(cmd)
+  return cmd if cmd[0] == ?/ && File.executable?(cmd)
   exts = ENV['PATHEXT'] ? ENV['PATHEXT'].split(';') : ['']
   ENV['PATH'].split(File::PATH_SEPARATOR).each do |path|
     exts.each { |ext|
@@ -29,37 +57,60 @@ def which(cmd)
 end
 
 def die(code,message)
-  $stderr.puts message
+  $stderr.puts "stronghold-cli: #{message}"
   $stderr.flush
-  Kernel.exit(code)
+  Kernel.exit!(code)
 end
 
-def client()
+def client
   begin
     $client ||= Stronghold::Client.new($url)
   rescue Stronghold::ConnectionError => ex
-    $stderr.puts "Cannot connect to stronghold at #{$url}"
-    Kernel.exit(-1)
+    die(-1,"Cannot connect to stronghold at #{$url}")
   end
 end
 
 def path_valid?(arg)
-  arg.start_with?(*(client.head.tree.paths - [""]))
+  (arg.length > 1 && arg.start_with?(*(client.head.tree.paths - [""]))) || arg == "/"
 end
 
+##
+# Set mode. E.g you can't use --set and --get in the same invocation
 def mode_ify(opt)
-  die(-1,"Can't use #{opt} in --#{mode.to_s}") if $mode && $mode != opt
-  $mode=opt
+  die(-1, "Can't use #{opt} in --#{mode.to_s}") if $mode && $mode != opt
+  $mode = opt
+end
+
+def valid_path
+  die(-4,"Need to define path first, with --app or --path") unless $path
+  die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
+end
+
+def valid_tree(nxt = false)
+  valid_path
+  if nxt
+    client.head.tree.next_materialized($path)[:data]
+  else
+    client.head.tree.materialized($path)
+  end
+end
+
+def data_path(arg)
+  arg == "" ? "/" : arg
 end
 
 opts = GetoptLong.new(
   [ '--env', '-e', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--get', '-g', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--history', '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--url', '-u', GetoptLong::REQUIRED_ARGUMENT ],
-  [ '--list', '-l', GetoptLong::NO_ARGUMENT ]
+  [ '--list', '-l', GetoptLong::NO_ARGUMENT ],
+  [ '--force', '-f', GetoptLong::NO_ARGUMENT ],
+  [ '--run', '-r', GetoptLong::NO_ARGUMENT ],
 )
 opts.ordering = GetoptLong::REQUIRE_ORDER
 
@@ -74,36 +125,76 @@ opts.each do |opt, arg|
     mode_ify(opt)
     puts client.head.tree.paths.join(",")
   when '--path'
-    die(-1,"Path #{arg} does not match except at root") unless path_valid?(arg)
     $path = arg
-    tree = client.head.tree.materialized($path)
   when '--app'
     filepath = "/etc/stronghold-cli.d/#{arg}"
-    die(-5,"File not readable: #{filepath}") unless File.readable?(filepath)
+    die(-5, "File not readable: #{filepath}") unless File.readable?(filepath)
     $path = IO.read(filepath)
-    die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
-    tree = client.head.tree.materialized($path)
+  when '--history'
+    mode_ify(opt)
+    valid_path
+    client.versions.before(client.head, 5).reverse.each{|version|
+      change = version.change
+      puts "At #{Time.at(change.timestamp).ctime} [#{change.author}]: #{change.comment}"
+      puts format(extract(version.tree.materialized($path), data_path(arg),false))
+    }
   when '--env'
-    die(-4,"Need to define path first, with --app or --path") unless $path
     mode_ify(opt)
-    from, to = arg.split(":")
-    ENV[to] = extract(tree, from)
+    from, to = arg.split(?:)
+    die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
+    ENV[to] = extract(valid_tree(), from).to_s
+  when '--force'
+    $force = true
+  when '--run'
+    $run = true
+  when '--next'
+    mode_ify(opt)
+    old = extract(valid_tree(), arg)
+    new = old
+    while(old == new)
+      new = extract(valid_tree(true), data_path(arg))
+    end
+    puts format(new)
   when '--set'
-    die(1,"sets not supported at present")
-  when '--get'
-    die(-4,"Need to define path first, with --app or --path") unless $path
     mode_ify(opt)
-    puts extract(*([tree, arg] - [nil]))
+    internal_path,to,comment = arg.split(?:)
+    if internal_path.nil? || to.nil?
+      die(-6,"Wrong format to set, use like --set=hashpath:value:[comment]")
+    end
+    client.head.update({
+        :path => $path,
+        :author => "command-line on #{Socket.gethostname}",
+        :data => intract(client.head.tree.peculiar($path), internal_path, to),
+        :comment => comment || "At level #{$path} set #{arg}"
+      })
+  when '--get'
+    mode_ify(opt)
+    puts format(extract(valid_tree(), data_path(arg)))
   end
 end
-if $mode == "--env"
+if $mode == "--env" or $run
   if ARGV.length > 0 && (app = which(ARGV[0]))
     Kernel.exec(ENV, app, *ARGV[1..-1])
   else
     puts "Env requires an executable last argument, after --, either in your PATH or fully qualified"
   end
 elsif $mode == nil
-  puts "Run as:"
-  puts "# stronghold-cli (--app my-server|--path /app/data) --get /data/path ..."
-  puts "# stronghold-cli [--url stronghold:port] (--app my-server|--path /app/data) --env /data/path:PATHDATA ... -- runnable"
+  puts "$ stronghold-cli (--path /path/ |--app app | --list) [operation]"
+  puts
+  puts "Operations:"
+  puts
+  puts "  --next [/data/path]"
+  puts "  Wait for next stronghold change matched by data path and print"
+  puts
+  puts "  --history [/data/path]"
+  puts "  Show the impact of the last 5 versions on this data path"
+  puts
+  puts "  --get [/data/path] ..."
+  puts "  Get data matched by data path from stronghold head and print"
+  puts
+  puts "  --set /data/path:to_value ..."
+  puts "  Set value of data path, creating hashes as we go. Use --force to overwrite"
+  puts
+  puts "  --env /data/path:PATHDATA ... -- runnable"
+  puts "  Get data from stronghold head and put in environment variable, and run runnable"
 end

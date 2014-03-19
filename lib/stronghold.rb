@@ -2,6 +2,13 @@ require 'excon'
 require 'json'
 
 module Stronghold
+  class Path
+    def self.valid(path)
+      raise "path should start with a forward slash" unless path[0] == ?/ || path.empty?
+      raise "path should not end with a forward slash" if path[-1] == ?/ && path != ?/
+    end
+  end
+
   class Tree
     attr_reader :version
 
@@ -27,7 +34,7 @@ module Stronghold
     # Generally this is not what you want, unless you are
     # writing an editor
     def peculiar(path)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      Stronghold::Path.valid(path)
       resp = @client.connection.get(
         path: "/#{version}/tree/peculiar#{path}",
         expects: 200,
@@ -41,7 +48,7 @@ module Stronghold
     # from this level of the path and all previous levels
     # superimposed in order of specialization (lower overrides higher)
     def materialized(path)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      Stronghold::Path.valid(path)
       resp = @client.connection.get(
         path: "/#{version}/tree/materialized#{path}",
         expects: 200,
@@ -50,8 +57,10 @@ module Stronghold
       JSON.parse(resp.body)
     end
 
+    ##
+    # Blocks until the materialized JSON for a particular path changes
     def next_materialized(path)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
+      Stronghold::Path.valid(path)
       resp = @client.connection.get(
         path: "/#{version}/next/tree/materialized#{path}",
         expects: 200,
@@ -107,6 +116,8 @@ module Stronghold
       @tree ||= Tree.new(@client, @version)
     end
 
+    ##
+    # Get update data for a past change
     def change
       @change ||= begin
         response = @client.connection.get(
@@ -125,15 +136,21 @@ module Stronghold
       end
     end
 
+    ##
+    # Update or create a new path
     def update(options)
       path, data, author, comment = options.values_at(:path, :data, :author, :comment)
-      raise "path should start with a forward slash" unless path[0] == '/' || path.empty?
-      resp = @client.connection.post(
-        path: "/#{version}/update#{path}",
-        body: JSON.generate(data: data, author: author, comment: comment),
-        expects: 200,
-        idempotent: true
-      )
+      if [data, author, comment].compact.length != 3
+        raise "No null arguments allowed in options: #{options}"
+      end
+      Stronghold::Path.valid(path)
+      resp = Stronghold::Client.wrap("Could not update stronghold"){
+        @client.connection.post(
+          path: "/#{version}/update#{path}",
+          body: JSON.generate(data: data, author: author, comment: comment),
+          expects: 200,
+          idempotent: true
+        )}
       Version.new(@client, resp.body)
     end
   end
@@ -169,26 +186,30 @@ module Stronghold
   class Error < StandardError;  end
   class ConnectionError < Error
     attr_reader :child_error
-    def initialize(child_error)
-      super("#{child_error.message} (#{child_error.class})")
+    def initialize(child_error,error_data)
+      super("#{error_data}: #{child_error.message} (#{child_error.class})")
       set_backtrace(child_error.backtrace)
       @child_error = child_error
     end
   end
 
   class Client
+    def self.wrap(error=nil,&block)
+      begin
+        block.call()
+      rescue Excon::Errors::Error => ex
+        raise Stronghold::ConnectionError.new(ex,error)
+      end
+    end
+
     attr_reader :connection
 
     ##
     # Connect to stronghold
     def initialize(uri = "http://127.0.0.1:5040")
-      begin
-        @connection = Excon.new(uri)
-        unless @connection.get.body == "Stronghold says hi"
-          raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
-        end
-      rescue Excon::Errors::Error => ex
-        raise(Stronghold::ConnectionError.new(ex))
+      @connection = Excon.new(uri)
+      unless Stronghold::Client.wrap{@connection.get.body} == "Stronghold says hi"
+        raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
       end
     end
 
