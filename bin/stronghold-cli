@@ -91,7 +91,7 @@ end
 
 def valid_path
   die(-4,"Need to define path first, with --app or --path") unless $path
-  die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
+  die(-1,"Path #{$path} does not match except at root") unless path_valid?($path)
 end
 
 def valid_tree(nxt = false)
