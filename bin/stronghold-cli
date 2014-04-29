@@ -133,7 +133,7 @@ opts.each do |opt, arg|
     mode_ify(opt)
     puts client.head.tree.paths.join(",")
   when '--path'
-    $path = arg
+    $path = Stronghold::Path.cleanup(arg)
   when '--app'
     filepath = "/etc/stronghold-cli.d/#{arg}"
     die(-5, "File not readable: #{filepath}") unless File.readable?(filepath)

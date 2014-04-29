@@ -7,6 +7,10 @@ module Stronghold
       raise "path should start with a forward slash" unless path[0] == ?/ || path.empty?
       raise "path should not end with a forward slash" if path[-1] == ?/ && path != ?/
     end
+
+    def self.cleanup(path)
+      File.expand_path(path, '/').gsub(/\/+/, '/')
+    end
   end
 
   class Tree
