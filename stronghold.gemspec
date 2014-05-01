@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.email         = ["sk@pusher.com"]
   s.description   = "Stronghold client"
   s.summary       = "Client for the stronghold configuration store"
-  s.homepage      = "https://github.com/pusher/ruby-stronghold-client"
+  s.homepage      = "https://github.com/pusher/stronghold-ruby"
   s.license       = "MIT"
 
   s.files         = `git ls-files`.split($/)
