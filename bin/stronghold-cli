@@ -1,4 +1,11 @@
 #!/usr/bin/env ruby
+begin
+  require_relative "../vendor/bundle/bundler/setup"
+rescue LoadError => ex
+  $stderr.puts "Using bundler/setup"
+  require 'bundler/setup'
+end
+
 require 'stronghold'
 require 'getoptlong'
 require 'json'
