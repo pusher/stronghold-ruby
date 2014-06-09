@@ -36,9 +36,10 @@ end
 ##
 # Set value in recursive hash, when given the hash path and value
 def intract(res, path, val)
-  split_path = path.split(?/).select{|p| p != ""}
-  leaf = split_path[0..-2]
-    .reduce(res){|old, new| (old[new].nil? ? old.update(new => {}) : old)[new] }
+  split_path = path.split(?/).select { |p| p != "" }
+  leaf = split_path[0..-2].reduce(res) do |old, new|
+    (old[new].nil? ? old.update(new => {}) : old)[new]
+  end
   leaf.update({split_path[-1] => val}) do |key,oldval,newval|
     if oldval.class == Hash && !$force
       die(-11,"Won't overwrite hash in update of #{path}, would overwrite #{oldval}")
