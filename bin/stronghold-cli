@@ -91,7 +91,7 @@ end
 
 def valid_path
   die(-4,"Need to define path first, with --app or --path") unless $path
-  die(-1,"Path #{arg} does not match except at root") unless path_valid?($path)
+  die(-1,"Path #{$path} does not match except at root") unless path_valid?($path)
 end
 
 def valid_tree(nxt = false)
@@ -133,7 +133,7 @@ opts.each do |opt, arg|
     mode_ify(opt)
     puts client.head.tree.paths.join(",")
   when '--path'
-    $path = arg
+    $path = Stronghold::Path.cleanup(arg)
   when '--app'
     filepath = "/etc/stronghold-cli.d/#{arg}"
     die(-5, "File not readable: #{filepath}") unless File.readable?(filepath)
