@@ -1,10 +1,5 @@
 #!/usr/bin/env ruby
-begin
-  require_relative "../vendor/bundle/bundler/setup"
-rescue LoadError => ex
-  $stderr.puts "Using bundler/setup"
-  require 'bundler/setup'
-end
+$:.unshift File.expand_path('../../lib', __FILE__)
 
 require 'stronghold'
 require 'getoptlong'

@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+#
+# Little wrapper scripts that setups the environment and runs ./bin/handle
+#
+pwd = Dir.pwd
+file = __FILE__
+while File.symlink?(file)
+  file = File.expand_path File.readlink(file)
+  Dir.chdir File.dirname(file)
+end
+Dir.chdir pwd
+TOP = File.dirname file
+ENV['BUNDLE_GEMFILE'] = File.join(TOP, 'Gemfile')
+$:.unshift File.join(TOP, 'vendor/bundle')
+require 'bundler/setup'
+
+load File.join(TOP, 'bin/stronghold-cli')
