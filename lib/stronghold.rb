@@ -24,12 +24,11 @@ module Stronghold
     ##
     # List the paths that stronghold knows about
     def paths
-      resp = @client.connection.get(
+      @client.get_json(
         path: "/#{version}/tree/paths",
         expects: 200,
         idempotent: true
       )
-      JSON.parse(resp.body)
     end
 
     ##
@@ -39,12 +38,11 @@ module Stronghold
     # writing an editor
     def peculiar(path)
       Stronghold::Path.valid(path)
-      resp = @client.connection.get(
+      @client.get_json(
         path: "/#{version}/tree/peculiar#{path}",
         expects: 200,
         idempotent: true
       )
-      JSON.parse(resp.body)
     end
 
     ##
@@ -53,24 +51,22 @@ module Stronghold
     # superimposed in order of specialization (lower overrides higher)
     def materialized(path)
       Stronghold::Path.valid(path)
-      resp = @client.connection.get(
+      @client.get_json(
         path: "/#{version}/tree/materialized#{path}",
         expects: 200,
         idempotent: true
       )
-      JSON.parse(resp.body)
     end
 
     ##
     # Blocks until the materialized JSON for a particular path changes
     def next_materialized(path)
       Stronghold::Path.valid(path)
-      resp = @client.connection.get(
+      result = @client.get_json(
         path: "/#{version}/next/tree/materialized#{path}",
         expects: 200,
         idempotent: true
       )
-      result = JSON.parse(resp.body)
       {
         data: result["data"],
         version: Version.new(@client, result["revision"])
@@ -124,12 +120,11 @@ module Stronghold
     # Get update data for a past change
     def change
       @change ||= begin
-        response = @client.connection.get(
+        options = @client.get_json(
           path: "/#{version}/change",
           expects: 200,
           idempotent: true
         )
-        options = JSON.parse(response.body)
         Update.new(
           author: options["author"],
           comment: options["comment"],
@@ -145,17 +140,16 @@ module Stronghold
     def update(options)
       path, data, author, comment = options.values_at(:path, :data, :author, :comment)
       if [data, author, comment].compact.length != 3
-        raise "No null arguments allowed in options: #{options}"
+        raise ArgumentError, "No null arguments allowed in options: #{options}"
       end
       Stronghold::Path.valid(path)
-      resp = Stronghold::Client.wrap("Could not update stronghold"){
-        @client.connection.post(
-          path: "/#{version}/update#{path}",
-          body: JSON.generate(data: data, author: author, comment: comment),
-          expects: 200,
-          idempotent: true
-        )}
-      Version.new(@client, resp.body)
+      version = @client.post(
+        path: "/#{version}/update#{path}",
+        body: JSON.generate(data: data, author: author, comment: comment),
+        expects: 200,
+        idempotent: true
+      )
+      Version.new(@client, version)
     end
   end
 
@@ -165,70 +159,90 @@ module Stronghold
     end
 
     def at(ts)
-      raise "expected a time" unless ts.kind_of?(Time)
-      Version.new(@client, @client.connection.get(
+      raise ArgumentError, "expected a time" unless ts.kind_of?(Time)
+      Version.new(@client, @client.get(
         path: '/versions',
         query: {at: ts.to_i},
         expects: 200,
         idempotent: true
-      ).body)
+      ))
     end
 
     def before(version, n)
-      raise "expected a Version" unless version.kind_of?(Version)
-      JSON.parse(@client.connection.get(
+      raise ArgumentError, "expected a Version" unless version.respond_to?(:version)
+      @client.get_json(
         path: '/versions',
         query: {last: version.version, size: n},
         expects: 200,
         idempotent: true
-      ).body).map { |x|
+      ).map { |x|
         Version.new(@client, x['revision'])
       }
     end
   end
 
-  class Error < StandardError;  end
-  class ConnectionError < Error
-    attr_reader :child_error
-    def initialize(child_error,error_data)
-      super("#{error_data}: #{child_error.message} (#{child_error.class})")
-      set_backtrace(child_error.backtrace)
-      @child_error = child_error
+  module Error; end
+  class ConnectionError < StandardError
+    include Error
+  end
+
+  module ResponseWrapper
+    attr_reader :response
+
+    def self.wrap(obj, response)
+      obj.extend self
+      obj.instance_variable_set(:@response, response)
+      obj
     end
   end
 
   class Client
-    def self.wrap(error=nil,&block)
-      begin
-        block.call()
-      rescue Excon::Errors::Error => ex
-        raise Stronghold::ConnectionError.new(ex,error)
-      end
-    end
-
     attr_reader :connection
 
     ##
     # Connect to stronghold
     def initialize(uri = "http://127.0.0.1:5040")
       @connection = Excon.new(uri)
-      unless Stronghold::Client.wrap{@connection.get.body} == "Stronghold says hi"
-        raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
+      unless get() == "Stronghold says hi"
+        raise ConnectionError, "#{uri} is not stronghold"
       end
     end
 
     ##
     # Get the latest version, generally what you want
     def head
-      Version.new(self, @connection.get(
+      Version.new(self, get(
         path: '/head',
         expects: 200,
         idempotent: true
-      ).body)
+      ))
     end
 
     def versions
       @versions ||= Versions.new(self)
+    end
+
+    def request(method, params={})
+      response = @connection.send(method, params)
+
+      ResponseWrapper.wrap(body, response)
+    rescue Excon::Errors::Error => ex
+      ex.extend Error # tag
+      raise
+    end
+
+    def get(params={})
+      request(:get, params)
+    end
+
+    def get_json(params={})
+      body = request(:get, params)
+      json = JSON.parse(body)
+      ResponseWrapper.wrap(json, body.response)
+    end
+
+    def post(params={})
+      request(:post, params)
     end
   end
 end
