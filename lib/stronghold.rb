@@ -148,13 +148,14 @@ module Stronghold
         raise "No null arguments allowed in options: #{options}"
       end
       Stronghold::Path.valid(path)
-      resp = Stronghold::Client.wrap("Could not update stronghold"){
+      resp = Stronghold::Client.wrap("Could not update stronghold") {
         @client.connection.post(
           path: "/#{version}/update#{path}",
           body: JSON.generate(data: data, author: author, comment: comment),
           expects: 200,
           idempotent: true
-        )}
+        )
+      }
       Version.new(@client, resp.body)
     end
   end
@@ -190,20 +191,32 @@ module Stronghold
   class Error < StandardError;  end
   class ConnectionError < Error
     attr_reader :child_error
-    def initialize(child_error,error_data)
-      super("#{error_data}: #{child_error.message} (#{child_error.class})")
-      set_backtrace(child_error.backtrace)
-      @child_error = child_error
+    def initialize(child_error, error_data)
+      if child_error.nil?
+        super(error_data)
+      else
+        super("#{error_data}: #{child_error.message} (#{child_error.class})")
+        set_backtrace(child_error.backtrace)
+        @child_error = child_error
+      end
     end
   end
 
   class Client
-    def self.wrap(error=nil,&block)
-      begin
-        block.call()
-      rescue Excon::Errors::Error => ex
-        raise Stronghold::ConnectionError.new(ex,error)
+    def self.wrap(error = nil, retries = 0, &block)
+      done_retries = 0
+      ex = nil
+      while done_retries <= retries
+        puts done_retries
+        begin
+          resp = block.call()
+          return resp
+        rescue Excon::Errors::Error => e
+          ex = e
+          done_retries += 1
+        end
       end
+      raise Stronghold::ConnectionError.new(ex, error)
     end
 
     attr_reader :connection
@@ -211,9 +224,9 @@ module Stronghold
     ##
     # Connect to stronghold
     def initialize(uri = "http://127.0.0.1:5040")
-      @connection = Excon.new(uri)
-      unless Stronghold::Client.wrap{@connection.get.body} == "Stronghold says hi"
-        raise Stronghold::ConnectionError.new("#{uri} is not stronghold")
+      @connection = Excon.new(uri, connect_timeout: 5)
+      unless Stronghold::Client.wrap("Could not connect to #{uri}", 4) { @connection.get.body } == "Stronghold says hi"
+        raise Stronghold::ConnectionError.new(nil, "#{uri} is not stronghold")
       end
     end
 
