@@ -45,6 +45,18 @@ def intract(res, path, val)
   res
 end
 
+def intract_json(res, json)
+  res.clone.update(json) do |key, old_value, new_value|
+    if old_value.class == Hash && !force
+      die(-12, "Won't overwrite hash in update of #{path}, would overwrite #{old_value.inspect}")
+    elsif new_value.class == Hash
+      die(-13, "Won't update #{path} with hash #{new_value.inspect}")
+    else
+      new_value
+    end
+  end
+end
+
 ##
 # Get binary for exec
 def which(cmd)
@@ -105,8 +117,10 @@ end
 opts = GetoptLong.new(
   [ '--env', '-e', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--get', '-g', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--get-peculiar', '-G', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--set-json', '-j', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--history', '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
@@ -164,15 +178,31 @@ opts.each do |opt, arg|
     if internal_path.nil? || to.nil?
       die(-6,"Wrong format to set, use like --set=hashpath:value:[comment]")
     end
-    client.head.update({
-        :path => $path,
-        :author => "command-line on #{Socket.gethostname}",
-        :data => intract(client.head.tree.peculiar($path), internal_path, to),
-        :comment => comment || "At level #{$path} set #{arg}"
-      })
+    client.head.update(
+      :path => $path,
+      :author => "command-line on #{Socket.gethostname}, USER=#{ENV['USER']}",
+      :data => intract(client.head.tree.peculiar($path), internal_path, to),
+      :comment => comment || "At level #{$path} set #{arg}"
+    )
+  when '--set-json'
+    mode_ify(opt)
+    json = JSON.load($stdin)
+    old_data = client.head.tree.peculiar($path)
+    new_data = intract_json(old_data, json)
+    unless old_data == new_data
+      client.head.update(
+        path: $path,
+        author: "command-line on #{Socket.gethostname}, USER=#{ENV['USER']}",
+        data: new_data,
+        comment: "At level #{$path} set json"
+      )
+    end
   when '--get'
     mode_ify(opt)
     puts format(extract(valid_tree(), data_path(arg)))
+  when '--get-peculiar'
+    mode_ify(opt)
+    puts format(client.head.tree.peculiar($path))
   end
 end
 if $mode == "--env" or $run
@@ -195,8 +225,15 @@ elsif $mode == nil
   puts "  --get [/data/path] ..."
   puts "  Get data matched by data path from stronghold head and print"
   puts
+  puts "  --get-peculiar [/data/path] ..."
+  puts "  Get data matched by data path from stronghold head and print - this is the unmaterialized data."
+  puts
   puts "  --set /data/path:to_value ..."
   puts "  Set value of data path, creating hashes as we go. Use --force to overwrite"
+  puts
+  puts "  --set-json <stdin>"
+  puts "  Set value of data path. If you have a file then you can pipe like:"
+  puts "  $ cat file.json | stronghold-cli --path /path/ --set-json"
   puts
   puts "  --env /data/path:PATHDATA ... -- runnable"
   puts "  Get data from stronghold head and put in environment variable, and run runnable"
