@@ -207,7 +207,6 @@ module Stronghold
       done_retries = 0
       ex = nil
       while done_retries <= retries
-        puts done_retries
         begin
           resp = block.call()
           return resp
