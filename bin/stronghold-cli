@@ -80,7 +80,7 @@ end
 def client
   begin
     $client ||= Stronghold::Client.new($url)
-  rescue Stronghold::ConnectionError => ex
+  rescue Stronghold::ConnectionError
     die(-1,"Cannot connect to stronghold at #{$url}")
   end
 end
@@ -132,7 +132,6 @@ opts = GetoptLong.new(
 opts.ordering = GetoptLong::REQUIRE_ORDER
 
 $mode = nil
-tree = nil
 $url = "http://127.0.0.1:5040"
 opts.each do |opt, arg|
   case opt
