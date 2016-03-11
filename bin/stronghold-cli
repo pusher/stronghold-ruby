@@ -115,7 +115,7 @@ def data_path(arg)
 end
 
 opts = GetoptLong.new(
-  [ '--env', '-e', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--env', '-e', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--get', '-g', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--get-peculiar', '-G', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
@@ -156,9 +156,16 @@ opts.each do |opt, arg|
     }
   when '--env'
     mode_ify(opt)
-    from, to = arg.split(?:)
-    die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
-    ENV[to] = extract(valid_tree(), from).to_s
+    if arg.empty?
+      # Export all the config
+      valid_tree().each_pair do |k, v|
+        ENV[k] = v.to_s
+      end
+    else
+      from, to = arg.split(?:, 2)
+      die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
+      ENV[to] = extract(valid_tree(), from).to_s
+    end
   when '--force'
     $force = true
   when '--run'
