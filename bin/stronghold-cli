@@ -158,9 +158,11 @@ opts.each do |opt, arg|
     mode_ify(opt)
     if arg.empty?
       # Export all the config
-      valid_tree().each_pair do |k, v|
+      tree = valid_tree()
+      tree.each_pair do |k, v|
         ENV[k] = v.to_s
       end
+      ENV['_STRONGHOLD_ETAG'] = tree.etag
     else
       from, to = arg.split(?:, 2)
       die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
