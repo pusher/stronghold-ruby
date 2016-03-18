@@ -13,6 +13,16 @@ module Stronghold
     end
   end
 
+  module WithETag
+    attr_accessor :etag
+
+    def self.wrap(obj, response)
+      obj.extend(self)
+      obj.etag = response.headers['ETag']
+      obj
+    end
+  end
+
   class Tree
     attr_reader :version
 
@@ -58,7 +68,7 @@ module Stronghold
         expects: 200,
         idempotent: true
       )
-      JSON.parse(resp.body)
+      WithETag.wrap(JSON.parse(resp.body), resp)
     end
 
     ##

@@ -80,7 +80,7 @@ end
 def client
   begin
     $client ||= Stronghold::Client.new($url)
-  rescue Stronghold::ConnectionError => ex
+  rescue Stronghold::ConnectionError
     die(-1,"Cannot connect to stronghold at #{$url}")
   end
 end
@@ -115,7 +115,7 @@ def data_path(arg)
 end
 
 opts = GetoptLong.new(
-  [ '--env', '-e', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--env', '-e', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--get', '-g', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--get-peculiar', '-G', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
@@ -132,7 +132,6 @@ opts = GetoptLong.new(
 opts.ordering = GetoptLong::REQUIRE_ORDER
 
 $mode = nil
-tree = nil
 $url = "http://127.0.0.1:5040"
 opts.each do |opt, arg|
   case opt
@@ -157,9 +156,18 @@ opts.each do |opt, arg|
     }
   when '--env'
     mode_ify(opt)
-    from, to = arg.split(?:)
-    die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
-    ENV[to] = extract(valid_tree(), from).to_s
+    if arg.empty?
+      # Export all the config
+      tree = valid_tree()
+      tree.each_pair do |k, v|
+        ENV[k] = v.to_s
+      end
+      ENV['_STRONGHOLD_ETAG'] = tree.etag
+    else
+      from, to = arg.split(?:, 2)
+      die(-6, "Wrong format to env, use like --env=hashpath:VAR") if from.nil? || to.nil?
+      ENV[to] = extract(valid_tree(), from).to_s
+    end
   when '--force'
     $force = true
   when '--run'
