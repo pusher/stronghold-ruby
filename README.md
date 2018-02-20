@@ -24,7 +24,7 @@ stronghold-cli (--path /path/ |--app app | --list) [operation]
 Add this line to your application's Gemfile:
 
 ````ruby
-gem 'stronghold'
+gem "stronghold", git: "git@github.com:pusher/stronghold-ruby.git", branch: "master"
 ````
 
 And then execute:
