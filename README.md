@@ -2,12 +2,29 @@
 
 Command line client and gem for modifying and reading from the stronghold configuration store
 
-## Installation
+## Using the command-line client, `stronghold-cli`
+
+To install:
+
+````bash
+git clone git@github.com:pusher/stronghold-ruby.git
+cd stronghold-ruby
+gem build stronghold
+gem install stronghold
+````
+
+To use:
+
+````
+stronghold-cli (--path /path/ |--app app | --list) [operation]
+````
+
+## Using the `stronghold` Ruby library
 
 Add this line to your application's Gemfile:
 
 ````ruby
-gem 'stronghold'
+gem "stronghold", git: "git@github.com:pusher/stronghold-ruby.git", branch: "master"
 ````
 
 And then execute:
@@ -16,17 +33,6 @@ And then execute:
 bundle
 ````
 
-Or install it yourself as:
-
-````bash
-gem install stronghold
-````
-
-## Commandline Usage
-
-````bash
-stronghold-cli [ --path /path/ operation |--app app operation | --list ]
-````
 ### Stronghold path
 
 The stronghold path is used for allowing environments, clusters, servers, and applications to inherit in a logical chain, like `/environment/cluster/server/application`
