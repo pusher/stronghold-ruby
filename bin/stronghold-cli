@@ -121,7 +121,7 @@ opts = GetoptLong.new(
   [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--set-json', '-j', GetoptLong::OPTIONAL_ARGUMENT ],
-  [ '--replace-json', '-R', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--replace-json', '-J', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--history', '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
