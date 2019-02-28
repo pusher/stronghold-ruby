@@ -121,6 +121,7 @@ opts = GetoptLong.new(
   [ '--next', '-n', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--set', '-s', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--set-json', '-j', GetoptLong::OPTIONAL_ARGUMENT ],
+  [ '--replace-json', '-J', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--app', '-a', GetoptLong::REQUIRED_ARGUMENT ],
   [ '--history', '-h', GetoptLong::OPTIONAL_ARGUMENT ],
   [ '--path', '-p', GetoptLong::REQUIRED_ARGUMENT ],
@@ -205,6 +206,15 @@ opts.each do |opt, arg|
         comment: "At level #{$path} set json"
       )
     end
+  when '--replace-json'
+    mode_ify(opt)
+    json = JSON.load($stdin)
+    client.head.update(
+      path: $path,
+      author: "command-line on #{Socket.gethostname}, USER=#{ENV['USER']}",
+      data: json,
+      comment: "At level #{$path} set json"
+    )
   when '--get'
     mode_ify(opt)
     puts format(extract(valid_tree(), data_path(arg)))
@@ -240,8 +250,12 @@ elsif $mode == nil
   puts "  Set value of data path, creating hashes as we go. Use --force to overwrite"
   puts
   puts "  --set-json <stdin>"
-  puts "  Set value of data path. If you have a file then you can pipe like:"
+  puts "  Merge with value at data path. If you have a file then you can pipe like:"
   puts "  $ cat file.json | stronghold-cli --path /path/ --set-json"
+  puts
+  puts "  --replace-json <stdin>"
+  puts "  Replace value at data path. If you have a file then you can pipe like:"
+  puts "  $ cat file.json | stronghold-cli --path /path/ --replace-json"
   puts
   puts "  --env /data/path:PATHDATA ... -- runnable"
   puts "  Get data from stronghold head and put in environment variable, and run runnable"
