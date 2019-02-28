@@ -1,0 +1,25 @@
+#! /bin/bash -e
+
+TARGET=$1
+
+if [[ -z $TARGET ]]; then
+    echo "No target set!"
+    exit 1
+fi
+
+BINS="${TARGET}/.packager/bin"
+
+mkdir -p "$BINS"
+
+# Note that file copy is opt-in, defined in import-list
+rsync -av --files-from=package-list . "$TARGET" --recursive
+
+pushd $TARGET
+
+bundle install --standalone --deployment --binstubs
+
+echo "Copying executable to ${TARGET}"
+mv script/stronghold-cli "$BINS"/stronghold-cli
+rm -rf script
+
+popd

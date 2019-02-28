@@ -1,0 +1,6 @@
+lib
+bin
+script/stronghold-cli
+Gemfile
+Gemfile.lock
+stronghold.gemspec
