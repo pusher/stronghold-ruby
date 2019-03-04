@@ -1,0 +1,14 @@
+---
+from: 'ruby:2.0'
+as_root:
+  - apt-get update -qq && apt-get install -qy rsync
+  - gem install bundler --no-ri --no-rdoc --version 1.11.2
+  - chown -R cide:cide /usr/local
+before:
+  add:
+    - Gemfile
+    - Gemfile.lock
+
+use_ssh: true
+
+run: echo 'done'
