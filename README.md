@@ -1,3 +1,7 @@
+# DEPRECATED
+`stronghold-ruby` is officially deprecated and unmaintained.
+It is recommended that users transition to alternatives.
+
 # Stronghold
 
 Command line client and gem for modifying and reading from the stronghold configuration store
